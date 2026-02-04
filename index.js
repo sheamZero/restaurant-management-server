@@ -59,7 +59,7 @@ const sendEmail = async (emailAddress, emailData) => {
     const transporter = nodemailer.createTransport({
         host: "smtp.gmail.com",
         port: 587,
-        secure: false, // use STARTTLS (upgrade connection to TLS after connecting)
+        secure: false, 
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
@@ -108,6 +108,7 @@ async function run() {
         const userCollections = client.db("tableTalkDb").collection("userItems");
         const reservationCollections = client.db("tableTalkDb").collection("reserveItems");
         const paymentCollections = client.db("tableTalkDb").collection("payments");
+        const reviewCollections = client.db("tableTalkDb").collection("reviews");
 
         // token
         app.post("/jwt", async (req, res) => {
@@ -188,6 +189,38 @@ async function run() {
             res.send(result);
         })
 
+        // reviews API
+        app.get("/reviews", async (req, res) => {
+            try {
+                const reviews = await reviewCollections.find().toArray();
+                res.send(reviews);
+            } catch (error) {
+                res.status(500).send({ message: "Failed to fetch reviews" });
+            }
+        });
+
+
+        app.post("/reviews", verifyToken, async (req, res) => {
+            try {
+                const { name, details, rating } = req.body;
+
+                if (!name || !details || !rating) {
+                    return res.status(400).send({ message: "All fields are required" });
+                }
+
+                const review = {
+                    name,
+                    details,
+                    rating: Number(rating),
+                    createdAt: new Date(),
+                };
+
+                const result = await reviewCollections.insertOne(review);
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ message: "Failed to add review" });
+            }
+        });
 
 
 
@@ -202,7 +235,7 @@ async function run() {
                 const cartItems = await cartCollections.find(query).toArray();
                 res.send(cartItems);
             } catch (error) {
-                console.error(error);
+                // console.error(error);
                 res.status(500).send({ error: "Failed to fetch cart items" });
             }
         });
@@ -213,7 +246,7 @@ async function run() {
         })
         app.delete("/cart/:id", verifyToken, verifyUserEmail, async (req, res) => {
             const id = req.params.id;
-            console.log(id);
+            // console.log(id);
             const query = { _id: new ObjectId(id) }
             const result = await cartCollections.deleteOne(query);
             res.send(result);
@@ -244,6 +277,7 @@ async function run() {
                 const email = req.verifiedEmail;
                 const query = { email };
                 const result = await paymentCollections.find(query).toArray();
+                // console.log(result);
                 res.send(result);
             } catch (err) {
                 res.status(500).send({ error: err.message });
@@ -253,7 +287,7 @@ async function run() {
         app.post("/payments", verifyToken, verifyUserEmail, async (req, res) => {
             try {
                 const { email, transactionId, type, cartIds = [], reservationIds = [], amount, status, date } = req.body;
-                console.log(req.body);
+                // console.log(req.body);
                 if (!email || !transactionId || !type) {
                     return res.status(400).send({
                         success: false,
@@ -399,6 +433,33 @@ async function run() {
             res.send({ isAdmin });
         });
 
+        app.get("/admin-statistics", verifyToken, verifyUserEmail, verifyAdmin, async (req, res) => {
+            try {
+                const users = await userCollections.estimatedDocumentCount();
+                const orders = await cartCollections.estimatedDocumentCount();
+
+                const result = await paymentCollections.aggregate([
+                    {
+                        $group: {
+                            _id: null,
+                            totalRevenue: {
+                                $sum: "$amount"
+                            }
+                        }
+                    }
+                ]).toArray();
+
+                const revenue = result.length > 0 ? result[0].totalRevenue : 0
+
+                res.send({
+                    users,
+                    orders,
+                    revenue
+                });
+            } catch (err) {
+                res.status(500).send({ error: err.message })
+            }
+        })
 
         app.get("/admin/users", verifyToken, verifyUserEmail, verifyAdmin, async (req, res) => {
             try {
