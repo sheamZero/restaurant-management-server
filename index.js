@@ -10,11 +10,10 @@ const port = process.env.PORT || 9000;
 const app = express();
 
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: ['http://localhost:5173', 'https://tabletalk-restaurant-edf5e.web.app'],
     credentials: true,
     optionSuccessStatus: 200
 };
-
 
 const cookieOptions = {
     httpOnly: true,
@@ -59,7 +58,7 @@ const sendEmail = async (emailAddress, emailData) => {
     const transporter = nodemailer.createTransport({
         host: "smtp.gmail.com",
         port: 587,
-        secure: false, 
+        secure: false,
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
@@ -102,7 +101,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
     try {
-        await client.connect();
+        // await client.connect();
         const menuCollections = client.db("tableTalkDb").collection("menuItems");
         const cartCollections = client.db("tableTalkDb").collection("cartItems");
         const userCollections = client.db("tableTalkDb").collection("userItems");
@@ -133,7 +132,6 @@ async function run() {
                 if (!user || user.role !== "admin") {
                     return res.status(403).send("Forbidden: admin access only");
                 }
-
                 next();
             } catch (err) {
                 res.status(500).send({ error: err.message });
@@ -511,7 +509,7 @@ async function run() {
             }
         })
 
-        console.log("MongoDB connected!");
+        // console.log("MongoDB connected!");
     }
     catch (err) {
         console.error("Error from Server --> ", err);
@@ -524,6 +522,6 @@ app.get("/", (req, res) => {
     res.send("server is running!");
 });
 
-app.listen(port, () => {
-    console.log("server is running on:", port);
-});
+// app.listen(port, () => {
+//     console.log("server is running on:", port);
+// });
